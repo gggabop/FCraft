@@ -1,14 +1,14 @@
 package com.sandymandy.pleasurecraft.entity.girls;
 
 import com.sandymandy.pleasurecraft.scene.SceneOption;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,7 +17,7 @@ import java.util.Map;
 
 public class BiaEntity extends AbstractGirlEntity{
 
-    public BiaEntity(EntityType<? extends AbstractGirlEntity> entityType, World world) {
+    public BiaEntity(EntityType<? extends AbstractGirlEntity> entityType, Level world) {
         super(entityType, world);
     }
 
@@ -61,12 +61,12 @@ public class BiaEntity extends AbstractGirlEntity{
     }
 
 
-    public static DefaultAttributeContainer.Builder createAttributes() {
-        return MobEntity.createMobAttributes()
-                .add(EntityAttributes.MAX_HEALTH, 20)
-                .add(EntityAttributes.MOVEMENT_SPEED, .20)
-                .add(EntityAttributes.TEMPT_RANGE, 5)
-                .add(EntityAttributes.ATTACK_DAMAGE, 2);
+    public static AttributeSupplier.Builder createAttributes() {
+        return Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 20)
+                .add(Attributes.MOVEMENT_SPEED, .20)
+                .add(Attributes.TEMPT_RANGE, 5)
+                .add(Attributes.ATTACK_DAMAGE, 2);
 
     }
 

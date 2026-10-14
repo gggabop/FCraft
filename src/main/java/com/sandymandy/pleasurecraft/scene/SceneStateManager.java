@@ -2,7 +2,7 @@
 
     import com.sandymandy.pleasurecraft.PleasureCraft;
     import com.sandymandy.pleasurecraft.entity.girls.AbstractGirlEntity;
-    import net.minecraft.entity.player.PlayerEntity;
+    import net.minecraft.world.entity.player.Player;
 
     import java.util.List;
 
@@ -35,7 +35,7 @@
         NONE, INTRO, SLOW, FAST, CUM
     }
 
-    public void startScene(PlayerEntity rider,
+    public void startScene(Player rider,
                            String introAnim,
                            List<String> slowAnim,
                            List<String> fastAnim,
@@ -63,7 +63,7 @@
         isKeyHeld = false;
 
         onSceneStart(rider);
-        rider.startRiding(entity, false);
+        rider.startRiding(entity, false, false);
     }
 
     public void stopScene() {
@@ -75,7 +75,7 @@
         entity.setStripped(false);
     }
 
-    public void onSceneStart(PlayerEntity player) {
+    public void onSceneStart(Player player) {
         player.setInvisible(true);
 
         playPhase(ScenePhase.INTRO, this.animIntro, false,true);
@@ -96,14 +96,14 @@
     }
 
     public void onSceneStop() {
-        for (PlayerEntity player : entity.getWorld().getPlayers()) {
-            if (!player.hasVehicle()) {
+        for (Player player : entity.level().players()) {
+            if (!player.isPassenger()) {
                 player.setInvisible(false);
             }
         }
 
-        if (entity.hasPassengers()) {
-            entity.removeAllPassengers();
+        if (entity.isVehicle()) {
+            entity.ejectPassengers();
         }
 
         currentPhase = ScenePhase.NONE;
@@ -133,7 +133,7 @@
 
     private String getRandomFromList(List<String> list) {
         if (list.size() == 1) return list.getFirst(); // fallback
-        int index = entity.getWorld().getRandom().nextInt(list.size());
+        int index = entity.level().getRandom().nextInt(list.size());
         return list.get(index);
     }
 
@@ -150,12 +150,12 @@
         }
 
         // Handle scene exit
-        if (entity.isSceneActive() && !entity.hasPassengers()) {
+        if (entity.isSceneActive() && !entity.isVehicle()) {
             stopScene();
             return;
         }
 
-        PlayerEntity player = (PlayerEntity) entity.getFirstPassenger();
+        Player player = (Player) entity.getFirstPassenger();
         if (player != null) player.setInvisible(true);
 
         // Phase handling for looping states

@@ -1,7 +1,7 @@
 package com.sandymandy.pleasurecraft.entity.ai.goal;
 
 import com.sandymandy.pleasurecraft.entity.girls.AbstractGirlEntity;
-import net.minecraft.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 
 public class GirlAttackGoal extends MeleeAttackGoal {
     private final AbstractGirlEntity girl;
@@ -21,17 +21,17 @@ public class GirlAttackGoal extends MeleeAttackGoal {
     @Override
     public void stop() {
         super.stop();
-        this.girl.setAttacking(false);
+        this.girl.setAggressive(false);
     }
 
     @Override
     public void tick() {
         super.tick();
         this.ticks++;
-        if (this.ticks >= 5 && this.getCooldown() < this.getMaxCooldown() / 2) {
-            this.girl.setAttacking(true);
+        if (this.ticks >= 5 && this.getTicksUntilNextAttack() < this.getAttackInterval() / 2) {
+            this.girl.setAggressive(true);
         } else {
-            this.girl.setAttacking(false);
+            this.girl.setAggressive(false);
         }
     }
 }

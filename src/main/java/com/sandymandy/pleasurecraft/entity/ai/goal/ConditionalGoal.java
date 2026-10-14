@@ -1,6 +1,6 @@
 package com.sandymandy.pleasurecraft.entity.ai.goal;
 
-import net.minecraft.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.Goal;
 
 import java.util.EnumSet;
 import java.util.function.BooleanSupplier;
@@ -15,13 +15,13 @@ public class ConditionalGoal extends Goal {
     }
 
     @Override
-    public boolean canStart() {
-        return condition.getAsBoolean() && wrappedGoal.canStart();
+    public boolean canUse() {
+        return condition.getAsBoolean() && wrappedGoal.canUse();
     }
 
     @Override
-    public boolean shouldContinue() {
-        return condition.getAsBoolean() && wrappedGoal.shouldContinue();
+    public boolean canContinueToUse() {
+        return condition.getAsBoolean() && wrappedGoal.canContinueToUse();
     }
 
     @Override
@@ -40,17 +40,17 @@ public class ConditionalGoal extends Goal {
     }
 
     @Override
-    public boolean canStop() {
-        return wrappedGoal.canStop();
+    public boolean isInterruptable() {
+        return wrappedGoal.isInterruptable();
     }
 
     @Override
-    public boolean shouldRunEveryTick() {
-        return wrappedGoal.shouldRunEveryTick();
+    public boolean requiresUpdateEveryTick() {
+        return wrappedGoal.requiresUpdateEveryTick();
     }
 
     @Override
-    public EnumSet<Control> getControls() {
-        return wrappedGoal.getControls();
+    public EnumSet<Flag> getFlags() {
+        return wrappedGoal.getFlags();
     }
 }

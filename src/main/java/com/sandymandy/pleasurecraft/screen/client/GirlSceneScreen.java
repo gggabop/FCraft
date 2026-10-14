@@ -1,14 +1,13 @@
 package com.sandymandy.pleasurecraft.screen.client;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.sandymandy.pleasurecraft.networking.C2S.StartSceneC2SPacket;
 import com.sandymandy.pleasurecraft.scene.SceneOption;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
@@ -17,7 +16,7 @@ public class GirlSceneScreen extends Screen {
     private final List<SceneOption> options;
 
     public GirlSceneScreen(int entityId, List<SceneOption> options) {
-        super(Text.literal("Scene Options"));
+        super(Component.literal("Scene Options"));
         this.entityId = entityId;
         this.options = options;
     }
@@ -26,7 +25,7 @@ public class GirlSceneScreen extends Screen {
     protected void init() {
         int y = this.height / 4;
         for (SceneOption option : options) {
-            this.addDrawableChild(ButtonWidget.builder(Text.of(option.name()), button -> {
+            this.addRenderableWidget(Button.builder(Component.literal(option.name()), button -> {
                 ClientPlayNetworking.send(new StartSceneC2SPacket(
                         this.entityId,
                         option.introAnim(),
@@ -34,17 +33,16 @@ public class GirlSceneScreen extends Screen {
                         option.fastAnim(),
                         option.cumAnim()
                 ));
-                MinecraftClient.getInstance().setScreen(null); // close after sending
-            }).dimensions(this.width / 2 - 100, y, 200, 20).build());
+                Minecraft.getInstance().gui.setScreen(null); // close after sending
+            }).bounds(this.width / 2 - 100, y, 200, 20).build());
             y += 25;
         }
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        int alpha = 120; // adjust blur opacity
-        context.fillGradient(alpha, 0, 0, this.height, this.width, 0xAA000000, 0xAA000000);
-        super.render(context, mouseX, mouseY, delta);
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        // Oscurece toda la pantalla (antes los argumentos de ancho y alto estaban cambiados)
+        context.fillGradient(0, 0, this.width, this.height, 0xAA000000, 0xAA000000);
     }
 
 }

@@ -1,14 +1,20 @@
 package com.sandymandy.pleasurecraft.entity.girls;
 
-import com.mojang.authlib.GameProfile;
-import com.sandymandy.pleasurecraft.PleasureCraft;
+import com.geckolib.animatable.GeoEntity;
+import com.geckolib.animatable.instance.AnimatableInstanceCache;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.animation.AnimationController;
+import com.geckolib.animation.RawAnimation;
+import com.geckolib.animation.object.LoopType;
+import com.geckolib.animation.object.PlayState;
+import com.geckolib.animation.state.AnimationTest;
+import com.geckolib.util.GeckoLibUtil;
 import com.sandymandy.pleasurecraft.entity.ai.goal.ConditionalGoal;
 import com.sandymandy.pleasurecraft.entity.ai.goal.GirlAttackGoal;
 import com.sandymandy.pleasurecraft.entity.ai.goal.StopMovementGoal;
 import com.sandymandy.pleasurecraft.networking.C2S.AnimationSyncC2SPacket;
-import com.sandymandy.pleasurecraft.networking.C2S.BonePosSyncC2SPacket;
-import com.sandymandy.pleasurecraft.networking.S2C.ClothingArmorVisibilityS2CPacket;
 import com.sandymandy.pleasurecraft.networking.C2S.NextSceneAnimationC2SPacket;
+import com.sandymandy.pleasurecraft.networking.S2C.ClothingArmorVisibilityS2CPacket;
 import com.sandymandy.pleasurecraft.scene.SceneOption;
 import com.sandymandy.pleasurecraft.scene.SceneStateManager;
 import com.sandymandy.pleasurecraft.screen.GirlInventoryScreenHandlerFactory;
@@ -16,69 +22,71 @@ import com.sandymandy.pleasurecraft.util.Messages;
 import com.sandymandy.pleasurecraft.util.inventory.GirlInventory;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.PlayerSkinProvider;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.FoodComponent;
-import net.minecraft.entity.*;
-import net.minecraft.entity.ai.goal.*;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.passive.PassiveEntity;
-import net.minecraft.entity.passive.TameableEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.registry.tag.DamageTypeTags;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.FollowOwnerGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.PanicGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.SitWhenOrderedToGoal;
+import net.minecraft.world.entity.ai.goal.TemptGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.OwnerHurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.OwnerHurtTargetGoal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3d;
-import software.bernie.geckolib.animatable.GeoAnimatable;
-import software.bernie.geckolib.animatable.GeoEntity;
-import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
-import software.bernie.geckolib.animatable.instance.SingletonAnimatableInstanceCache;
-import software.bernie.geckolib.animation.*;
-import software.bernie.geckolib.animation.AnimationState;
-import software.bernie.geckolib.cache.object.GeoBone;
 
 import java.util.*;
 
 
-public abstract class AbstractGirlEntity extends TameableEntity implements GeoEntity {
-    private static final TrackedData<Boolean> MOVING_TO_BED = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<Boolean> LOCKED_STATE = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<Boolean> SITTING = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<Boolean> STRIPPED = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<Boolean> FOLLOWING = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<Boolean> IN_SCENE = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<String> OVERRIDE_ANIM = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.STRING);
-    private static final TrackedData<Boolean> OVERRIDE_LOOP = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<Boolean> OVERRIDE_HOLD = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    public static final TrackedData<Float> SCENE_PROGRESS = DataTracker.registerData(AbstractGirlEntity.class, TrackedDataHandlerRegistry.FLOAT);
-    private final AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
+public abstract class AbstractGirlEntity extends TamableAnimal implements GeoEntity {
+    private static final EntityDataAccessor<Boolean> MOVING_TO_BED = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> LOCKED_STATE = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> SITTING = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> STRIPPED = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> FOLLOWING = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> IN_SCENE = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<String> OVERRIDE_ANIM = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Boolean> OVERRIDE_LOOP = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> OVERRIDE_HOLD = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.BOOLEAN);
+    public static final EntityDataAccessor<Float> SCENE_PROGRESS = SynchedEntityData.defineId(AbstractGirlEntity.class, EntityDataSerializers.FLOAT);
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
     private final SceneStateManager sceneManager = new SceneStateManager(this);
+    // Estado que solo usa el cliente al dibujar (el renderizador lo copia al estado de render de cada fotograma)
     public Map<String, Boolean> boneVisibility = new HashMap<>();
-    public Map<String, Identifier> boneTextureOverrides = new HashMap<>();
-    public Map<String, Identifier> playerTexture = new HashMap<>();
-    public Map<String, Vec2f> boneUVOffsets = new HashMap<>();
+    public Map<String, Vec2> boneUVOffsets = new HashMap<>();
     public final Map<EquipmentSlot, Boolean> clothingVisibility = new EnumMap<>(EquipmentSlot.class);
     public final Map<EquipmentSlot, Boolean> armorVisibility = new EnumMap<>(EquipmentSlot.class);
     private final GirlInventory inventory = GirlInventory.ofSize();
@@ -87,11 +95,11 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
     private int ticksSinceLastHit;
     private static final int MAX_TICKS_NO_HIT = 20 * 20;
     public float previousYaw = 0;
-    public Vec3d previousVelocity = Vec3d.ZERO;
+    public Vec3 previousVelocity = Vec3.ZERO;
     private boolean freeze = false;
     private boolean lockMovement = false;
-    public Vec3d clientPassengerBonePos = Vec3d.ZERO;
-    public Vec3d serverPassengerBonePos = Vec3d.ZERO;
+    public Vec3 clientPassengerBonePos = Vec3.ZERO;
+    public Vec3 serverPassengerBonePos = Vec3.ZERO;
     public boolean showHiddenBones = false;
     public final int maxRelationshipLevel = 3;
     public int currentRelationshipLevel;
@@ -134,7 +142,7 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
     }
     // Armor bones mapped by EquipmentSlot
 
-    protected Map<EquipmentSlot, List<String>> getArmorBones() {
+    public Map<EquipmentSlot, List<String>> getArmorBones() {
         Map<EquipmentSlot, List<String>> armor = new HashMap<>();
 
         armor.put(EquipmentSlot.HEAD, new ArrayList<>(List.of(
@@ -167,23 +175,23 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
     }
 
 
-    protected AbstractGirlEntity(EntityType<? extends TameableEntity> entityType, World world) {
+    protected AbstractGirlEntity(EntityType<? extends TamableAnimal> entityType, Level world) {
         super(entityType, world);
     }
 
     @Override
-    protected void initDataTracker(DataTracker.Builder builder) {
-        super.initDataTracker(builder);
-        builder.add(MOVING_TO_BED, false);
-        builder.add(LOCKED_STATE, false);
-        builder.add(SITTING, false);
-        builder.add(STRIPPED, false);
-        builder.add(FOLLOWING, true);
-        builder.add(IN_SCENE, false);
-        builder.add(OVERRIDE_ANIM,"");
-        builder.add(OVERRIDE_LOOP, false);
-        builder.add(OVERRIDE_HOLD, false);
-        builder.add(SCENE_PROGRESS,0f);
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(MOVING_TO_BED, false);
+        builder.define(LOCKED_STATE, false);
+        builder.define(SITTING, false);
+        builder.define(STRIPPED, false);
+        builder.define(FOLLOWING, true);
+        builder.define(IN_SCENE, false);
+        builder.define(OVERRIDE_ANIM,"");
+        builder.define(OVERRIDE_LOOP, false);
+        builder.define(OVERRIDE_HOLD, false);
+        builder.define(SCENE_PROGRESS,0f);
     }
 
 
@@ -191,149 +199,146 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
         return inventory;
     }
 
+    // La armadura que lleva puesta vive en su propio inventario, no en el equipamiento normal del juego.
+    // (Se comprueba que el inventario ya exista porque el juego puede preguntar durante la construcción.)
     @Override
-    public Iterable<ItemStack> getArmorItems() {
-        return List.of(
-                inventory.getArmorStack(EquipmentSlot.FEET),
-                inventory.getArmorStack(EquipmentSlot.LEGS),
-                inventory.getArmorStack(EquipmentSlot.CHEST),
-                inventory.getArmorStack(EquipmentSlot.HEAD)
-        );
-    }
-
-    @Override
-    public ItemStack getEquippedStack(EquipmentSlot slot) {
+    public ItemStack getItemBySlot(EquipmentSlot slot) {
+        if (inventory == null) return super.getItemBySlot(slot);
         return inventory.getArmorStack(slot);
     }
 
     @Override
-    public void equipStack(EquipmentSlot slot, ItemStack stack) {
+    public void setItemSlot(EquipmentSlot slot, ItemStack stack) {
+        if (inventory == null) {
+            super.setItemSlot(slot, stack);
+            return;
+        }
         inventory.setArmorStack(slot, stack);
     }
 
     @Override
-    protected void initGoals() {
-        this.goalSelector.add(-1, new ConditionalGoal(new StopMovementGoal(this), () -> isFrozenInPlace()));
-        this.goalSelector.add(0, new SitGoal(this));
-        this.goalSelector.add(1, new SwimGoal(this));
-        this.goalSelector.add(2, new TameableEscapeDangerGoal(1.5D, DamageTypeTags.PANIC_ENVIRONMENTAL_CAUSES));
-        this.goalSelector.add(3, new GirlAttackGoal(this, 1.5, false));
-        this.goalSelector.add(4, new ConditionalGoal(new FollowOwnerGoal(this, 1.0, 10.0F, 2.0F), () -> isFollowing() && !isMovingToBed()));
-        this.goalSelector.add(5, new ConditionalGoal(new TemptGoal(this, 1.25D, Ingredient.ofItems(getTameItem()), false),() -> !isMovingToBed()));
-        this.goalSelector.add(6, new ConditionalGoal(new WanderAroundGoal(this, 1.0D),() -> !isMovingToBed()));
-        this.goalSelector.add(7, new ConditionalGoal(new LookAtEntityGoal(this, PlayerEntity.class, 6.0F),() -> !isFrozenInPlace() || !isMovingToBed()));
-        this.goalSelector.add(8, new ConditionalGoal(new LookAroundGoal(this),() -> !isFrozenInPlace() || !isMovingToBed()));
-        this.targetSelector.add(1, new TrackOwnerAttackerGoal(this));
-        this.targetSelector.add(2, new AttackWithOwnerGoal(this));
-        this.targetSelector.add(3, new RevengeGoal(this, PlayerEntity.class));
+    protected void registerGoals() {
+        this.goalSelector.addGoal(-1, new ConditionalGoal(new StopMovementGoal(this), () -> isFrozenInPlace()));
+        this.goalSelector.addGoal(0, new SitWhenOrderedToGoal(this));
+        this.goalSelector.addGoal(1, new FloatGoal(this));
+        this.goalSelector.addGoal(2, new PanicGoal(this, 1.5D, DamageTypeTags.PANIC_ENVIRONMENTAL_CAUSES));
+        this.goalSelector.addGoal(3, new GirlAttackGoal(this, 1.5, false));
+        this.goalSelector.addGoal(4, new ConditionalGoal(new FollowOwnerGoal(this, 1.0, 10.0F, 2.0F), () -> isFollowing() && !isMovingToBed()));
+        this.goalSelector.addGoal(5, new ConditionalGoal(new TemptGoal(this, 1.25D, stack -> stack.is(getTameItem()), false),() -> !isMovingToBed()));
+        this.goalSelector.addGoal(6, new ConditionalGoal(new RandomStrollGoal(this, 1.0D),() -> !isMovingToBed()));
+        this.goalSelector.addGoal(7, new ConditionalGoal(new LookAtPlayerGoal(this, Player.class, 6.0F),() -> !isFrozenInPlace() || !isMovingToBed()));
+        this.goalSelector.addGoal(8, new ConditionalGoal(new RandomLookAroundGoal(this),() -> !isFrozenInPlace() || !isMovingToBed()));
+        this.targetSelector.addGoal(1, new OwnerHurtByTargetGoal(this));
+        this.targetSelector.addGoal(2, new OwnerHurtTargetGoal(this));
+        this.targetSelector.addGoal(3, new HurtByTargetGoal(this, Player.class));
     }
 
 
     @Override
-    public ActionResult interactMob(PlayerEntity player, Hand hand) {
-        ItemStack itemStack = player.getStackInHand(hand);
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        ItemStack itemStack = player.getItemInHand(hand);
         Item itemInHand = itemStack.getItem();
-        if (this.isTamed()) {
+        if (this.isTame()) {
 
             if (this.isFoodItem(itemStack) && this.getHealth() < this.getMaxHealth()) {
-                this.getNavigation().findPathTo(player, 20);
-                this.eat(player, hand, itemStack);
-                FoodComponent foodComponent = itemStack.get(DataComponentTypes.FOOD);
+                this.getNavigation().createPath(player, 20);
+                this.usePlayerItem(player, hand, itemStack);
+                FoodProperties foodComponent = itemStack.get(DataComponents.FOOD);
                 float f = foodComponent != null ? foodComponent.nutrition() : 1.0F;
                 this.heal(2.0F * f);
-                return ActionResult.SUCCESS;
+                return InteractionResult.SUCCESS;
             }
 
-            if(this.isOwner(player)) {
-                if (itemStack.equals(ItemStack.EMPTY)){
-                    if (player.isSneaking()) {
+            if(this.isOwnedBy(player)) {
+                if (itemStack.isEmpty()){
+                    if (player.isShiftKeyDown()) {
                         this.setSit(!this.isSittingdown());
                         this.jumping = false;
-                        this.navigation.stop();
+                        this.getNavigation().stop();
                         this.setTarget(null);
-                        return ActionResult.SUCCESS.noIncrementStat();
+                        return InteractionResult.SUCCESS;
                     }
                     else {
-                        player.openHandledScreen(new GirlInventoryScreenHandlerFactory(this));
+                        player.openMenu(new GirlInventoryScreenHandlerFactory(this));
                         this.setMovementLockedState(true);
-                        getLookControl().lookAt(player, this.getMaxHeadRotation() + 20, this.getMaxLookPitchChange());
-                        return ActionResult.SUCCESS;
+                        getLookControl().setLookAt(player, this.getMaxHeadYRot() + 20, this.getMaxHeadXRot());
+                        return InteractionResult.SUCCESS;
                     }
                 }
             }else {
                 if ((itemInHand.equals(getTameItem()))) {
-                    player.sendMessage(Text.literal("She's Already In A Relationship With Someone"), true);
-                    return ActionResult.FAIL;
+                    player.sendOverlayMessage(Component.literal("She's Already In A Relationship With Someone"));
+                    return InteractionResult.FAIL;
                 }
             }
         } else {
 
-            if (itemStack.isEmpty() && player.isSneaking()) {
-                this.getNavigation().findPathTo(player, 20);
-                player.openHandledScreen(new GirlInventoryScreenHandlerFactory(this));
+            if (itemStack.isEmpty() && player.isShiftKeyDown()) {
+                this.getNavigation().createPath(player, 20);
+                player.openMenu(new GirlInventoryScreenHandlerFactory(this));
                 this.setMovementLockedState(true);
-                getLookControl().lookAt(player, this.getMaxHeadRotation() + 20, this.getMaxLookPitchChange());
-                return ActionResult.SUCCESS;
+                getLookControl().setLookAt(player, this.getMaxHeadYRot() + 20, this.getMaxHeadXRot());
+                return InteractionResult.SUCCESS;
             }
 
-            if (!this.getWorld().isClient) {
-                if (itemInHand.equals(getTameItem()) && !player.isSneaking()) {
-                    itemStack.decrementUnlessCreative(1, player);
+            if (!this.level().isClientSide()) {
+                if (itemInHand.equals(getTameItem()) && !player.isShiftKeyDown()) {
+                    itemStack.consume(1, player);
                     this.tryTame(player);
-                    return ActionResult.SUCCESS;
+                    return InteractionResult.SUCCESS;
                 } else {
                     // Wrong item OR empty hand (not sneaking)
-                    player.sendMessage(Text.literal(
+                    player.sendOverlayMessage(Component.literal(
                             "She ignores you. Maybe try giving her a " + getReadableTameItemName() + "."
-                    ), true);
-                    return ActionResult.FAIL;
+                    ));
+                    return InteractionResult.FAIL;
                 }
             }
 
 
         }
-        return super.interactMob(player, hand);
+        return super.mobInteract(player, hand);
     }
 
-    private void tryTame(PlayerEntity player) {
+    private void tryTame(Player player) {
         if (this.random.nextInt(3) == 0) {
-            this.setOwner(player);
-            this.navigation.stop();
+            this.tame(player);
+            this.getNavigation().stop();
             setTarget(null);
             setSit(true);
-            this.getWorld().sendEntityStatus(this, EntityStatuses.ADD_POSITIVE_PLAYER_REACTION_PARTICLES);
-            player.sendMessage(Text.literal("You Asked " + getGirlDisplayName() + " Out And She Said §aYes" ), true);
+            this.level().broadcastEntityEvent(this, EntityEvent.TAMING_SUCCEEDED);
+            player.sendOverlayMessage(Component.literal("You Asked " + getGirlDisplayName() + " Out And She Said §aYes" ));
             this.setBasePosHere();
         } else {
-            this.getWorld().sendEntityStatus(this, EntityStatuses.ADD_NEGATIVE_PLAYER_REACTION_PARTICLES);
+            this.level().broadcastEntityEvent(this, EntityEvent.TAMING_FAILED);
         }
     }
 
     public void setSit(boolean sitting) {
-        this.dataTracker.set(SITTING, sitting);
+        this.entityData.set(SITTING, sitting);
         this.setTarget(null);
-        this.calculateDimensions();
-        super.setSitting(sitting);
+        this.refreshDimensions();
+        super.setOrderedToSit(sitting);
     }
 
     public boolean isSittingdown() {
-        return this.dataTracker.get(SITTING);
+        return this.entityData.get(SITTING);
     }
 
     public void setFollowing(boolean follow) {
-        this.dataTracker.set(FOLLOWING, follow);
+        this.entityData.set(FOLLOWING, follow);
     }
 
     public boolean isFollowing() {
-        return this.dataTracker.get(FOLLOWING);
+        return this.entityData.get(FOLLOWING);
     }
 
     public void setStripped(boolean stripped) {
-        this.dataTracker.set(STRIPPED, stripped);
+        this.entityData.set(STRIPPED, stripped);
     }
 
     public boolean isStripped() {
-        return this.dataTracker.get(STRIPPED);
+        return this.entityData.get(STRIPPED);
     }
 
     public void setFreeze(boolean locked) {
@@ -345,97 +350,97 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
     }
 
     public void setMovementLockedState(boolean locked) {
-        this.dataTracker.set(LOCKED_STATE, locked);
+        this.entityData.set(LOCKED_STATE, locked);
     }
 
     public boolean isMovementLocked() {
-        return this.dataTracker.get(LOCKED_STATE);
+        return this.entityData.get(LOCKED_STATE);
     }
 
     public void setMovingToBedState(boolean state) {
-        this.dataTracker.set(MOVING_TO_BED, state);
+        this.entityData.set(MOVING_TO_BED, state);
     }
 
     public boolean isMovingToBed() {
-        return this.dataTracker.get(MOVING_TO_BED);
+        return this.entityData.get(MOVING_TO_BED);
     }
 
 
     public void setSceneState(boolean inScene) {
-        this.dataTracker.set(IN_SCENE, inScene);
+        this.entityData.set(IN_SCENE, inScene);
     }
 
     public boolean isSceneActive() {
-        return this.dataTracker.get(IN_SCENE);
+        return this.entityData.get(IN_SCENE);
     }
 
     public void setOverrideAnim(String anim){
-        this.dataTracker.set(OVERRIDE_ANIM, anim);
+        this.entityData.set(OVERRIDE_ANIM, anim);
     }
 
     public String getOverrideAnim(){
-        return this.dataTracker.get(OVERRIDE_ANIM);
+        return this.entityData.get(OVERRIDE_ANIM);
     }
 
     public void setOverrideLoop(boolean loop){
-        this.dataTracker.set(OVERRIDE_LOOP, loop);
+        this.entityData.set(OVERRIDE_LOOP, loop);
     }
 
     public boolean getOverrideLoop(){
-        return this.dataTracker.get(OVERRIDE_LOOP);
+        return this.entityData.get(OVERRIDE_LOOP);
     }
 
     public void setOverrideHold(boolean hold){
-        this.dataTracker.set(OVERRIDE_HOLD, hold);
+        this.entityData.set(OVERRIDE_HOLD, hold);
     }
 
     public boolean getOverrideHold(){
-        return this.dataTracker.get(OVERRIDE_HOLD);
+        return this.entityData.get(OVERRIDE_HOLD);
     }
 
     public void setSceneProgress(float progress){
-        this.dataTracker.set(SCENE_PROGRESS, progress);
+        this.entityData.set(SCENE_PROGRESS, progress);
     }
 
     public float getSceneProgress(){
-        return this.dataTracker.get(SCENE_PROGRESS);
+        return this.entityData.get(SCENE_PROGRESS);
     }
 
     @Override
-    public boolean isBreedingItem(ItemStack stack) {
+    public boolean isFood(ItemStack stack) {
         return false;
     }
 
     public boolean isFoodItem(ItemStack stack) {
-        return stack.isIn(ItemTags.WOLF_FOOD);
+        return stack.is(ItemTags.WOLF_FOOD);
     }
 
     @Override
-    public @Nullable PassiveEntity createChild(ServerWorld world, PassiveEntity entity) {
+    public @Nullable AgeableMob getBreedOffspring(ServerLevel world, AgeableMob entity) {
         return null;
     }
 
     @Override
-    public boolean shouldRenderName() {
-        this.setCustomName(Text.of(getGirlDisplayName()));
+    public boolean shouldShowName() {
+        this.setCustomName(Component.literal(getGirlDisplayName()));
         this.setCustomNameVisible(true);
         return true;
     }
 
-    public void breakUp(PlayerEntity player) {
-        if(!player.getWorld().isClient){
-            this.setTamed(false,true); // Mark the entity as untamed
-            this.setOwnerUuid(null); // Remove the owner UUID
+    public void breakUp(Player player) {
+        if(!player.level().isClientSide()){
+            this.setTame(false,true); // Mark the entity as untamed
+            this.setOwnerReference(null); // Remove the owner
             this.setSit(false); // Ensure the entity is not sitting
             this.setStripped(false);
-            if(!isTamed() && !isOwner(player)){
-                player.sendMessage(Text.literal("§cYou Broke Up With " + getGirlDisplayName()), true);
+            if(!isTame() && !isOwnedBy(player)){
+                player.sendOverlayMessage(Component.literal("§cYou Broke Up With " + getGirlDisplayName()));
             }
         }
     }
 
     public void setBasePosHere(){
-        this.basePos = this.getBlockPos();
+        this.basePos = this.blockPosition();
     }
 
     public void setBasePos(BlockPos pos) {
@@ -447,14 +452,14 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
     }
 
     public void teleportToBase() {
-        if (this.basePos != null && this.getWorld() != null) {
+        if (this.basePos != null && this.level() != null) {
             setSit(true);
-            this.teleport(this.basePos.getX(), this.basePos.getY(), this.basePos.getZ(), false);
+            this.teleportTo(this.basePos.getX(), this.basePos.getY(), this.basePos.getZ());
         }
     }
 
     public void toggleModelBones(List<String> bones, boolean visible){
-        if(!getWorld().isClient){
+        if(!level().isClientSide()){
             return;
         }
 
@@ -468,47 +473,29 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
         }
     }
 
-
-    public void overrideBoneTexture(String boneName, Identifier texture) {
-        if (this.boneTextureOverrides == null) this.boneTextureOverrides = new HashMap<>();
-        this.boneTextureOverrides.put(boneName, texture);
-    }
-
     public void overrideBoneUV(List<String> bones, float uOffset, float vOffset) {
         if (this.boneUVOffsets == null) this.boneUVOffsets = new HashMap<>();
 
         for (String boneName : bones) {
-            this.boneUVOffsets.put(boneName, new Vec2f(uOffset, vOffset));
+            this.boneUVOffsets.put(boneName, new Vec2(uOffset, vOffset));
         }
     }
 
     @Nullable
-    public Vec2f getBoneUVOffset(String boneName) {
+    public Vec2 getBoneUVOffset(String boneName) {
         if (boneUVOffsets != null && boneUVOffsets.containsKey(boneName)) {
             return boneUVOffsets.get(boneName);
         }
         return null;
     }
 
-    @Nullable
-    public Identifier getBoneTexture(String boneName) {
-        if (boneTextureOverrides != null && boneTextureOverrides.containsKey(boneName)) {
-            return boneTextureOverrides.get(boneName);
-        }
-        return null;
-    }
-
-    public Map<String, Identifier> getBoneTextureOverrides() {
-        return this.boneTextureOverrides;
-    }
-
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllerRegistrar) {
-        controllerRegistrar.add(new AnimationController<>(this, "controller", 4, this::handleAnimations));
+        controllerRegistrar.add(new AnimationController<AbstractGirlEntity>("controller", 4, this::handleAnimations));
     }
 
-    private <T extends GeoAnimatable> PlayState handleAnimations(AnimationState<T> state) {
-        AnimationController<?> controller = state.getController();
+    private PlayState handleAnimations(AnimationTest<AbstractGirlEntity> state) {
+        AnimationController<AbstractGirlEntity> controller = state.controller();
 
         String overrideAnim = this.getOverrideAnim();
         boolean overrideLoop = this.getOverrideLoop();
@@ -522,7 +509,7 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
 
 
             // End override if it was one-shot and finished playing
-            if (!overrideLoop && (controller.getAnimationState() == AnimationController.State.STOPPED || controller.getAnimationState() == AnimationController.State.PAUSED)) {
+            if (!overrideLoop && controller.hasAnimationFinished()) {
                 if (isSceneActive()){
                     ClientPlayNetworking.send(new NextSceneAnimationC2SPacket(this.getId(),this.currentAnimState));
                 }
@@ -537,14 +524,14 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
             this.currentLoopState = true;
         }
 
-        Animation.LoopType loopType;
+        LoopType loopType;
 
         if (this.currentLoopState) {
-            loopType = Animation.LoopType.LOOP;
+            loopType = LoopType.LOOP;
         } else if (this.currentHoldState) {
-            loopType = Animation.LoopType.HOLD_ON_LAST_FRAME;
+            loopType = LoopType.HOLD_ON_LAST_FRAME;
         } else {
-            loopType = Animation.LoopType.PLAY_ONCE;
+            loopType = LoopType.PLAY_ONCE;
         }
 
 
@@ -554,8 +541,8 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
 
     }
 
-    private String getDefaultAnimation(AnimationState<?> state) {
-        if (!this.isOnGround() && !isSittingdown()) return "fly";
+    private String getDefaultAnimation(AnimationTest<AbstractGirlEntity> state) {
+        if (!this.onGround() && !isSittingdown()) return "fly";
         if (state.isMoving() && !isSittingdown()) return "walk";
         if (isSittingdown()) return "sit";
         return "idle";
@@ -565,7 +552,7 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
 
     // Call this to force an animation
     public void playAnimation(String animationName, boolean loop, boolean holdOnLastFrame) {
-        if (!this.getWorld().isClient) { // run only on server
+        if (!this.level().isClientSide()) { // run only on server
             this.setOverrideAnim(animationName != null ? animationName : "");
             this.setOverrideLoop(loop);
             this.setOverrideHold(holdOnLastFrame);
@@ -578,7 +565,14 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
     }
 
     public void stopOverrideAnimations() {
-        ClientPlayNetworking.send(new AnimationSyncC2SPacket(this.getId(), "",false,false));
+        if (this.level().isClientSide()) {
+            ClientPlayNetworking.send(new AnimationSyncC2SPacket(this.getId(), "",false,false));
+        } else {
+            // En el servidor (por ejemplo al terminar una escena) no hay cliente al que mandar el paquete: se cambia directamente
+            this.setOverrideAnim("");
+            this.setOverrideLoop(false);
+            this.setOverrideHold(false);
+        }
     }
     @Override
     public AnimatableInstanceCache getAnimatableInstanceCache() {
@@ -587,59 +581,57 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
 
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound nbt) {
-        super.writeCustomDataToNbt(nbt);
+    protected void addAdditionalSaveData(ValueOutput output) {
+        super.addAdditionalSaveData(output);
 
-        RegistryWrapper.WrapperLookup registryLookup = this.getWorld().getRegistryManager();
-        Inventories.writeNbt(nbt, this.inventory.getItems(), registryLookup);
-        nbt.putBoolean("SitSate", this.isSittingdown());
-        nbt.putBoolean("StripState", this.isStripped());
-        nbt.putBoolean("SceneState", this.isSceneActive());
-        nbt.putBoolean("FrozenState", this.isFrozenInPlace());
+        ContainerHelper.saveAllItems(output, this.inventory.getItems());
+        output.putBoolean("SitSate", this.isSittingdown());
+        output.putBoolean("StripState", this.isStripped());
+        output.putBoolean("SceneState", this.isSceneActive());
+        output.putBoolean("FrozenState", this.isFrozenInPlace());
 
 
         if (this.basePos != null) {
-            nbt.putInt("BaseX", this.basePos.getX());
-            nbt.putInt("BaseY", this.basePos.getY());
-            nbt.putInt("BaseZ", this.basePos.getZ());
+            output.putInt("BaseX", this.basePos.getX());
+            output.putInt("BaseY", this.basePos.getY());
+            output.putInt("BaseZ", this.basePos.getZ());
         }
     }
 
 
     @Override
-    public void readCustomDataFromNbt(NbtCompound nbt) {
-        super.readCustomDataFromNbt(nbt);
+    protected void readAdditionalSaveData(ValueInput input) {
+        super.readAdditionalSaveData(input);
 
-        RegistryWrapper.WrapperLookup registryLookup = this.getWorld().getRegistryManager();
-        Inventories.readNbt(nbt, this.inventory.getItems(), registryLookup);
-        this.setSit(nbt.getBoolean("SitSate"));
-        this.setStripped(nbt.getBoolean("StripState"));
-        if (nbt.contains("BaseX") && nbt.contains("BaseY") && nbt.contains("BaseZ")) {
-            int x = nbt.getInt("BaseX");
-            int y = nbt.getInt("BaseY");
-            int z = nbt.getInt("BaseZ");
-            this.basePos = new BlockPos(x, y, z);
+        ContainerHelper.loadAllItems(input, this.inventory.getItems());
+        this.setSit(input.getBooleanOr("SitSate", false));
+        this.setStripped(input.getBooleanOr("StripState", false));
+        Optional<Integer> x = input.getInt("BaseX");
+        Optional<Integer> y = input.getInt("BaseY");
+        Optional<Integer> z = input.getInt("BaseZ");
+        if (x.isPresent() && y.isPresent() && z.isPresent()) {
+            this.basePos = new BlockPos(x.get(), y.get(), z.get());
         }
     }
 
+    @Override
     public void tick() {
         super.tick();
         this.getSceneManager().tick();
-        previousYaw = getYaw();
-        previousVelocity = getVelocity();
+        previousYaw = getYRot();
+        previousVelocity = getDeltaMovement();
         updateClothingAndArmor();
-        applySkinToBone((PlayerEntity) this.getFirstPassenger());
     }
 
     @Override
-    public void tickMovement() {
-        super.tickMovement();
+    public void aiStep() {
+        super.aiStep();
 
         if (attackTarget != null) {
             ticksSinceLastHit++;
 
             if (ticksSinceLastHit >= MAX_TICKS_NO_HIT) {
-                // Lost interest — stop attacking
+                // Lost interest - stop attacking
                 this.setTarget(null);
                 attackTarget = null;
                 ticksSinceLastHit = 0;
@@ -647,13 +639,13 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
         }
 
         if(isMovementLocked()){
-            this.navigation.stop();
+            this.getNavigation().stop();
         }
     }
 
 
     private void updateClothingAndArmor() {
-        if (this.getWorld().isClient()) return;
+        if (this.level().isClientSide()) return;
 
         boolean stripped = isStripped();
 
@@ -676,14 +668,14 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
         ClothingArmorVisibilityS2CPacket packet =
                 new ClothingArmorVisibilityS2CPacket(this.getId(), clothingList, armorList);
 
-        for (ServerPlayerEntity player : Objects.requireNonNull(this.getServer()).getPlayerManager().getPlayerList()) {
+        for (ServerPlayer player : Objects.requireNonNull(this.level().getServer()).getPlayerList().getPlayers()) {
             ServerPlayNetworking.send(player, packet);
         }
 
     }
 
     public void applyClothingAndArmor() {
-        if (!this.getWorld().isClient()) return;
+        if (!this.level().isClientSide()) return;
 
         for (EquipmentSlot slot : EquipmentSlot.values()) {
             List<String> clothingBones = getClothingBones().get(slot);
@@ -696,10 +688,10 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
                 toggleModelBones(armorBones, armorVisibility.getOrDefault(slot, false));
             }
 
-            if (!this.inventory.getArmorStack(slot).isEmpty()) {
-                String typeName = this.inventory.getArmorStack(slot).getItem().toString().toLowerCase(); // get item name
+            if (!this.inventory.getArmorStack(slot).isEmpty() && armorBones != null) {
+                String typeName = BuiltInRegistries.ITEM.getKey(this.inventory.getArmorStack(slot).getItem()).getPath().toLowerCase();
                 float uv = getArmorU(typeName);
-                this.overrideBoneUV(this.getArmorBones().get(slot),uv,0);
+                this.overrideBoneUV(armorBones, uv, 0);
             }
         }
 
@@ -724,8 +716,8 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
     }
 
     @Override
-    public boolean tryAttack(ServerWorld world, Entity target) {
-        boolean success = super.tryAttack(world, target);
+    public boolean doHurtTarget(ServerLevel world, Entity target) {
+        boolean success = super.doHurtTarget(world, target);
 
         if (success && target == attackTarget) {
             ticksSinceLastHit = 0; // reset timer on successful hit
@@ -734,26 +726,22 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
         return success;
     }
 
-    public void handlePassengerBone(GeoBone bone){
-        if (bone != null) {
-            Vector3d bonePos = bone.getWorldPosition();
-            this.clientPassengerBonePos = new Vec3d(bonePos.x, bonePos.y, bonePos.z);
-            ClientPlayNetworking.send(new BonePosSyncC2SPacket(this.getId(), this.clientPassengerBonePos));
-
+    /** El renderizador llama aquí con la posición en el mundo del hueso donde va el pasajero. */
+    public void handlePassengerBone(Vec3 worldPos){
+        if (worldPos != null) {
+            this.clientPassengerBonePos = worldPos;
         }
-
-
     }
 
-    public void cachePassengerBone(boolean valid,Vec3d pos){
+    public void cachePassengerBone(boolean valid, Vec3 pos){
         if (valid) {
             this.serverPassengerBonePos = pos;
 
         }
     }
 
-    public Vec3d getPassengerBone(){
-        if(this.getWorld().isClient()){
+    public Vec3 getPassengerBone(){
+        if(this.level().isClientSide()){
             return clientPassengerBonePos;
         }
         else {
@@ -764,16 +752,16 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
 
 
     @Override
-    public Vec3d updatePassengerForDismount(LivingEntity passenger) {
+    public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
         return this.getPassengerBone().add(0,1,0);
     }
 
     @Override
-    public Vec3d getPassengerRidingPos(Entity passenger) {
+    public Vec3 getPassengerRidingPosition(Entity passenger) {
         /*This is not based on the local coordinates from the entity. it is the global coordinates based on the world. It also has a base offset of -0.6 on the Y Axis
         * This is also based on the client not the server*/
-        if(this.getPassengerBone() == Vec3d.ZERO){
-            return this.getPos().add(0,this.getSceneManager().passengerYOffset,0);
+        if(this.getPassengerBone() == Vec3.ZERO){
+            return this.position().add(0,this.getSceneManager().passengerYOffset,0);
         }
         else {
             return this.getPassengerBone().add(0,this.getSceneManager().passengerYOffset,0);
@@ -785,41 +773,41 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
     }
 
     @Override
-    public boolean canImmediatelyDespawn(double distanceSquared) {
+    public boolean removeWhenFarAway(double distanceSquared) {
         return false;
     }
 
     @Override
-    protected void dropInventory(ServerWorld world) {
-        super.dropInventory(world); // calls standard drop logic
+    protected void dropEquipment(ServerLevel world) {
+        super.dropEquipment(world); // calls standard drop logic
         for (ItemStack stack : this.getInventory().getItems()) {
             if (!stack.isEmpty()) {
-                this.dropStack(world,stack);
+                this.spawnAtLocation(world, stack);
             }
         }
-        this.getInventory().clear();
+        this.getInventory().clearContent();
     }
 
     @Override
-    public boolean damage(ServerWorld world, DamageSource source, float amount) {
+    public boolean hurtServer(ServerLevel world, DamageSource source, float amount) {
         if (this.isInvulnerableTo(world, source)) return false;
 
-        String damageType = source.getName();
+        String damageType = source.getMsgId();
         // If killed by /kill or void, allow normal death
         if (damageType.equals("outOfWorld") || damageType.equals("genericKill")) {
-            return super.damage(world, source, amount);
+            return super.hurtServer(world, source, amount);
         }
 
-        if(this.isTamed() && (this.getHealth() - amount <= 0.0F) &! (damageType.equals("outOfWorld") || damageType.equals("genericKill") || isFrozenInPlace())) {
+        if(this.isTame() && (this.getHealth() - amount <= 0.0F) &! (damageType.equals("outOfWorld") || damageType.equals("genericKill") || isFrozenInPlace())) {
             this.setHealth(getMaxHealth());
             // If basePos is still null, fall back to current position
             BlockPos respawnPos = (this.basePos != null)
                     ? this.basePos
-                    : this.getBlockPos();
+                    : this.blockPosition();
 
             // Send a message referencing whichever Pos we have
             new Messages().GlobleMessage(
-                    this.getWorld(),
+                    this.level(),
                     getGirlDisplayName() + " died and respawned at base: " +
                             respawnPos.getX() + ", " +
                             respawnPos.getY() + ", " +
@@ -827,9 +815,9 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
             );
 
             // Drops inventory as if she died
-            this.dropInventory(world);
+            this.dropEquipment(world);
 
-            // If basePos was null, make sure to set it now so future hits won’t NPE
+            // If basePos was null, make sure to set it now so future hits won't NPE
             if (this.basePos == null) {
                 this.basePos = respawnPos;
             }
@@ -838,28 +826,21 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
             return false;
         }
         else if(isFrozenInPlace() &! damageType.equals("outOfWorld") || damageType.equals("genericKill")){
-            if(!this.hasPassengers()){
+            if(!this.isVehicle()){
                 new Messages().GlobleMessage(
-                        this.getWorld(),getGirlDisplayName() + " is busy at the moment");
+                        this.level(),getGirlDisplayName() + " is busy at the moment");
             }
             return false;
         }
         else{
-            return super.damage(world, source, amount);
+            return super.hurtServer(world, source, amount);
         }
     }
 
     @Override
-    public void pushAwayFrom(Entity entity) {
+    public void push(Entity entity) {
         if (!freeze) {
-            super.pushAwayFrom(entity);
-        }
-    }
-
-    @Override
-    public void takeKnockback(double strength, double x, double z) {
-        if (!this.freeze) {
-            super.takeKnockback(strength, x, z);
+            super.push(entity);
         }
     }
 
@@ -870,16 +851,16 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
 
 
     @Override
-    public void addVelocity(double dx, double dy, double dz) {
+    public void push(double dx, double dy, double dz) {
         if (!freeze) {
-            super.addVelocity(dx, dy, dz);
+            super.push(dx, dy, dz);
         }
     }
 
 
     public String getReadableTameItemName() {
         Item tameItem = this.getTameItem();
-        Identifier id = Registries.ITEM.getId(tameItem);
+        Identifier id = BuiltInRegistries.ITEM.getKey(tameItem);
 
         if (id != null) {
             String path = id.getPath(); // e.g., "blue_allium"
@@ -906,12 +887,12 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
         this.messageAsEntity(null,message);
     }
 
-    public void messageAsEntity(@Nullable PlayerEntity playerEntity, String message){
-        if(this.getWorld().isClient()) return;
+    public void messageAsEntity(@Nullable Player playerEntity, String message){
+        if(this.level().isClientSide()) return;
         String finalMessage = "<"+getGirlDisplayName()+"> " + message;
 
         if(playerEntity == null){
-            new Messages().GlobleMessage(this.getWorld(), finalMessage);
+            new Messages().GlobleMessage(this.level(), finalMessage);
         }
         else {
             new Messages().PlayerSpecificMessage(playerEntity,finalMessage);
@@ -931,30 +912,5 @@ public abstract class AbstractGirlEntity extends TameableEntity implements GeoEn
         if (armorType.contains("gold")) return 0.0176f;
         if (armorType.contains("netherite")) return 0.087890625f;
         return 0f;
-    }
-
-    public void applySkinToBone(PlayerEntity player) {
-        Identifier texture;
-
-        // If the playerTexture is null then initialize it
-        if (this.playerTexture == null) this.playerTexture = new HashMap<>();
-
-        // Set the base of the player model to Steve so if there isn't a player it has a fallback
-        this.overrideBoneTexture("steve", Identifier.of(PleasureCraft.MOD_ID, "textures/player/steve.png"));
-
-        if (player != null) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            PlayerSkinProvider skinProvider = client.getSkinProvider();
-
-            GameProfile profile = player.getGameProfile();
-
-            // Get the skin identifier
-            texture = skinProvider.getSkinTextures(profile).texture();
-
-            // if isn't null set the player texture
-            if (texture != null) {
-                this.playerTexture.put("steve", texture);
-            }
-        }
     }
 }

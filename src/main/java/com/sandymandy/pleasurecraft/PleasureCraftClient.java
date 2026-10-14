@@ -13,7 +13,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.minecraft.client.gui.screen.ingame.HandledScreens;
+import net.minecraft.client.gui.screens.MenuScreens;
 
 
 
@@ -22,7 +22,7 @@ public class PleasureCraftClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        HandledScreens.register(PleasureCraft.GIRL_INVENTORY_SCREEN_HANDLER, GirlInventoryScreen::new);
+        MenuScreens.register(PleasureCraft.GIRL_INVENTORY_SCREEN_HANDLER, GirlInventoryScreen::new);
 
         EntityRendererRegistry.register(PleasureCraftEntities.LUCY, LucyRenderer::new);
         EntityRendererRegistry.register(PleasureCraftEntities.BIA, BiaRenderer::new);
@@ -36,11 +36,11 @@ public class PleasureCraftClient implements ClientModInitializer {
             if (client.player == null) return;
 
             // Thrust button held
-            boolean thrustHeld = PleasureCraftKeybinds.thrustKey.isPressed();
+            boolean thrustHeld = PleasureCraftKeybinds.thrustKey.isDown();
             ClientPlayNetworking.send(new ThrustKeybindC2SPacket(thrustHeld));
 
             // Cum button (pressed once)
-            ClientPlayNetworking.send(new CumKeybindC2SPacket(PleasureCraftKeybinds.cumKey.wasPressed()));
+            ClientPlayNetworking.send(new CumKeybindC2SPacket(PleasureCraftKeybinds.cumKey.consumeClick()));
 
         });
     }

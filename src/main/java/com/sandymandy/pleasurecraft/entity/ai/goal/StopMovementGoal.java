@@ -1,21 +1,21 @@
 package com.sandymandy.pleasurecraft.entity.ai.goal;
 
-import net.minecraft.entity.ai.goal.Goal;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.entity.ai.control.MoveControl;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.control.MoveControl;
 
 import java.util.EnumSet;
 
 public class StopMovementGoal extends Goal {
-    private final PathAwareEntity entity;
+    private final PathfinderMob entity;
 
-    public StopMovementGoal(PathAwareEntity entity) {
+    public StopMovementGoal(PathfinderMob entity) {
         this.entity = entity;
-        this.setControls(EnumSet.of(Goal.Control.MOVE, Goal.Control.JUMP));
+        this.setFlags(EnumSet.of(Goal.Flag.MOVE, Goal.Flag.JUMP));
     }
 
     @Override
-    public boolean canStart() {
+    public boolean canUse() {
         return true; // Always active while added
     }
 
@@ -31,17 +31,17 @@ public class StopMovementGoal extends Goal {
 
     private void haltMovement() {
         entity.getNavigation().stop();
-        entity.setVelocity(0, entity.getVelocity().y > 0 ? 0 : entity.getVelocity().y, 0); // stops lateral motion
+        entity.setDeltaMovement(0, entity.getDeltaMovement().y > 0 ? 0 : entity.getDeltaMovement().y, 0); // stops lateral motion
         entity.setJumping(false);
 
         MoveControl control = entity.getMoveControl();
         if (control != null) {
-            control.moveTo(entity.getX(), entity.getY(), entity.getZ(), 0); // keep position
+            control.setWantedPosition(entity.getX(), entity.getY(), entity.getZ(), 0); // keep position
         }
     }
 
     @Override
-    public boolean shouldContinue() {
+    public boolean canContinueToUse() {
         return true; // Continuous block
     }
 }

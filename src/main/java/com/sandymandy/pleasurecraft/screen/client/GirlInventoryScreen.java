@@ -7,60 +7,54 @@ import com.sandymandy.pleasurecraft.screen.GirlInventoryScreenHandler;
 import com.sandymandy.pleasurecraft.screen.InventoryButtonAction;
 import com.sandymandy.pleasurecraft.screen.InventoryButtonRegistry;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 
-public class GirlInventoryScreen extends HandledScreen<GirlInventoryScreenHandler> {
-    private static final Identifier TEXTURE = Identifier.of(PleasureCraft.MOD_ID, "/textures/gui/inventory.png");
+public class GirlInventoryScreen extends AbstractContainerScreen<GirlInventoryScreenHandler> {
+    private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(PleasureCraft.MOD_ID, "textures/gui/inventory.png");
     private float xMouse;
     private float yMouse;
     private static final int GUI_WIDTH = 176;
     private static final int GUI_HEIGHT = 170;
     private final AbstractGirlEntity girl;
-    private final PlayerEntity player;
+    private final Player player;
 
 
 
-    public GirlInventoryScreen(GirlInventoryScreenHandler handler, PlayerInventory inventory, Text title) {
+    public GirlInventoryScreen(GirlInventoryScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title);
         this.girl = handler.getGirl();
         this.player = inventory.player;
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        int alpha = 120; // adjust blur opacity
-        context.fillGradient(alpha, 0, 0, this.height, this.width, 0xAA000000, 0xAA000000);
-        super.render(context, mouseX, mouseY, delta);
-//        drawMouseoverTooltip(context,mouseX,mouseY);
-
-    }
-
-    @Override
-    protected void drawForeground(DrawContext context, int mouseX, int mouseY) {
+    protected void extractLabels(GuiGraphicsExtractor context, int mouseX, int mouseY) {
         //Stops the container names from rendering
     }
 
     @Override
-    protected void drawBackground(DrawContext context, float delta, int mouseX, int mouseY) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        // Oscurece toda la pantalla (antes los argumentos de ancho y alto estaban cambiados)
+        context.fillGradient(0, 0, this.width, this.height, 0xAA000000, 0xAA000000);
+
         int centerX = (width - GUI_WIDTH) / 2;
         int centerY = (height - GUI_HEIGHT) / 2;
-        int i = this.x;
-        int j = this.y;
-        context.drawTexture(RenderLayer::getGuiTextured,TEXTURE, centerX, centerY, 0, 0, GUI_WIDTH, GUI_HEIGHT, GUI_WIDTH, GUI_HEIGHT);
-        InventoryScreen.drawEntity(context, i + 26, j + 8, i + 75, j + 78, this.girl.getSizeGUI(), this.girl.getYAxisGUI(), mouseX, mouseY, this.girl);
+        int i = this.leftPos;
+        int j = this.topPos;
+        context.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, centerX, centerY, 0f, 0f, GUI_WIDTH, GUI_HEIGHT, GUI_WIDTH, GUI_HEIGHT);
+        InventoryScreen.extractEntityInInventoryFollowsMouse(context, i + 26, j + 8, i + 75, j + 78, this.girl.getSizeGUI(), this.girl.getYAxisGUI(), mouseX, mouseY, this.girl);
     }
 
     @Override
-    public void close() {
-        super.close();
+    public void onClose() {
+        super.onClose();
         ClientPlayNetworking.send(new MovementLockStateC2SPacket(this.girl.getId(),false));
     }
 
@@ -79,52 +73,52 @@ public class GirlInventoryScreen extends HandledScreen<GirlInventoryScreenHandle
         int startX = centerX - (buttonWidth + paddingX);
         int startY = centerY + 15;
 
-        if (girl.isTamed()){
+        if (girl.isTame()){
             for (int i = 0; i < InventoryButtonRegistry.BUTTONS_LEFT.size(); i++) {
                 InventoryButtonAction action = InventoryButtonRegistry.BUTTONS_LEFT.get(i);
                 int y = startY + i * (buttonHeight + paddingY);
-                Text dynamicLabel = action.label();
+                Component dynamicLabel = action.label();
 
                 if (action.label().getString().equals("Strip") && girl.isStripped()) {
-                    dynamicLabel = Text.literal("Dress Up");
+                    dynamicLabel = Component.literal("Dress Up");
                 }
 
-                this.addDrawableChild(ButtonWidget.builder(
+                this.addRenderableWidget(Button.builder(
                     dynamicLabel,
                     btn -> {
-                        if (girl != null && client != null && player != null) {
+                        if (girl != null && minecraft != null && player != null) {
                             action.action().accept(girl, player);  // Run the button's logic
-                            this.client.setScreen(null);
+                            this.minecraft.gui.setScreen(null);
                             ClientPlayNetworking.send(new MovementLockStateC2SPacket(this.girl.getId(),false));
                         }
                     }
-                ).dimensions(startX, y, buttonWidth, buttonHeight).build());
+                ).bounds(startX, y, buttonWidth, buttonHeight).build());
             }
 
             for (int i = 0; i < InventoryButtonRegistry.BUTTONS_RIGHT.size(); i++) {
                 InventoryButtonAction action = InventoryButtonRegistry.BUTTONS_RIGHT.get(i);
                 int y = startY + i * (buttonHeight + paddingY);
-                Text dynamicLabel = action.label();
+                Component dynamicLabel = action.label();
 
                 if (action.label().getString().equals("Sit") && girl.isSittingdown()){
-                    dynamicLabel = Text.literal("Stand");
+                    dynamicLabel = Component.literal("Stand");
                 }
                 else if (action.label().getString().equals("Follow Me") && girl.isFollowing()){
-                    dynamicLabel = Text.literal("Stop Following");
+                    dynamicLabel = Component.literal("Stop Following");
                 }
                 else if (action.label().getString().equals("Freeze") && girl.isFrozenInPlace()){
-                    dynamicLabel = Text.literal("Unfreeze");
+                    dynamicLabel = Component.literal("Unfreeze");
                 }
 
-                this.addDrawableChild(ButtonWidget.builder(
+                this.addRenderableWidget(Button.builder(
                     dynamicLabel,
                     btn -> {
-                        if (girl != null && client != null && player != null) {
+                        if (girl != null && minecraft != null && player != null) {
                             action.action().accept(girl, player);  // Run the button's logic
-                            this.client.setScreen(null);
+                            this.minecraft.gui.setScreen(null);
                         }
                     }
-                ).dimensions(centerX + 176 + paddingX, y, buttonWidth, buttonHeight).build());
+                ).bounds(centerX + 176 + paddingX, y, buttonWidth, buttonHeight).build());
             }
         }
 

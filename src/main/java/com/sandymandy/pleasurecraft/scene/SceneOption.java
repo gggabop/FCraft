@@ -1,8 +1,8 @@
 package com.sandymandy.pleasurecraft.scene;
 
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.codec.ByteBufCodecs;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,12 +14,12 @@ public record SceneOption(
         List<String> fastAnim,
         String cumAnim
 ) {
-    public static final PacketCodec<RegistryByteBuf, SceneOption> CODEC = PacketCodec.tuple(
-            PacketCodecs.STRING, SceneOption::name,
-            PacketCodecs.STRING, SceneOption::introAnim,
-            PacketCodecs.collection(ArrayList::new , PacketCodecs.STRING), SceneOption::slowAnim,
-            PacketCodecs.collection(ArrayList::new, PacketCodecs.STRING), SceneOption::fastAnim,
-            PacketCodecs.STRING, SceneOption::cumAnim,
+    public static final StreamCodec<RegistryFriendlyByteBuf, SceneOption> CODEC = StreamCodec.composite(
+            ByteBufCodecs.STRING_UTF8, SceneOption::name,
+            ByteBufCodecs.STRING_UTF8, SceneOption::introAnim,
+            ByteBufCodecs.collection(ArrayList::new , ByteBufCodecs.STRING_UTF8), SceneOption::slowAnim,
+            ByteBufCodecs.collection(ArrayList::new, ByteBufCodecs.STRING_UTF8), SceneOption::fastAnim,
+            ByteBufCodecs.STRING_UTF8, SceneOption::cumAnim,
             SceneOption::new
     );
 

@@ -1,28 +1,30 @@
 package com.sandymandy.pleasurecraft.client;
 
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.sandymandy.pleasurecraft.PleasureCraft;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.Identifier;
 
 public class PleasureCraftKeybinds {
-    public static KeyBinding thrustKey;
-    public static KeyBinding cumKey;
+    public static KeyMapping thrustKey;
+    public static KeyMapping cumKey;
 
+    // Categoría propia en Controles (en 26.x es un objeto, ya no un texto)
+    private static final KeyMapping.Category CATEGORY =
+            KeyMapping.Category.register(Identifier.fromNamespaceAndPath(PleasureCraft.MOD_ID, "main"));
 
     public static void register() {
-        thrustKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        thrustKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pleasurecraft.thrust", // translation key
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_Z, // default key
-                "key.categories.pleasurecraft" // translation category
+                InputConstants.KEY_Z, // default key
+                CATEGORY
         ));
 
-        cumKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        cumKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.pleasurecraft.cum",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_V,
-                "key.categories.pleasurecraft"
+                InputConstants.KEY_V,
+                CATEGORY
         ));
 
   }

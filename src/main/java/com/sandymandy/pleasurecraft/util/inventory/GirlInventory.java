@@ -1,15 +1,15 @@
 package com.sandymandy.pleasurecraft.util.inventory;
 
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.core.NonNullList;
+import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
-public interface GirlInventory extends Inventory {
+public interface GirlInventory extends Container {
     // Slot indices
     int MAIN_HAND_SLOT = 0;
 
@@ -28,16 +28,16 @@ public interface GirlInventory extends Inventory {
     int TOTAL_SLOTS = BACKPACK_START + BACKPACK_SIZE;  // 17 total slots
 
     // Must always return the same instance backing the inventory
-    DefaultedList<ItemStack> getItems();
+    NonNullList<ItemStack> getItems();
 
     // Factory to create a GirlInventory backed by the given list
-    static GirlInventory of(DefaultedList<ItemStack> items) {
+    static GirlInventory of(NonNullList<ItemStack> items) {
         return () -> items;
     }
 
     // Factory to create a new GirlInventory with empty slots
     static GirlInventory ofSize() {
-        return of(DefaultedList.ofSize(TOTAL_SLOTS, ItemStack.EMPTY));
+        return of(NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY));
     }
 
 
@@ -45,29 +45,29 @@ public interface GirlInventory extends Inventory {
 
     default ItemStack getArmorStack(EquipmentSlot slot) {
         return switch (slot) {
-            case FEET -> getStack(ARMOR_FEET_SLOT);
-            case LEGS -> getStack(ARMOR_LEGS_SLOT);
-            case CHEST -> getStack(ARMOR_CHEST_SLOT);
-            case HEAD -> getStack(ARMOR_HEAD_SLOT);
+            case FEET -> getItem(ARMOR_FEET_SLOT);
+            case LEGS -> getItem(ARMOR_LEGS_SLOT);
+            case CHEST -> getItem(ARMOR_CHEST_SLOT);
+            case HEAD -> getItem(ARMOR_HEAD_SLOT);
             default -> ItemStack.EMPTY; // mainhand/offhand not handled here
         };
     }
 
     default void setArmorStack(EquipmentSlot slot, ItemStack stack) {
         switch (slot) {
-            case FEET -> setStack(ARMOR_FEET_SLOT, stack);
-            case LEGS -> setStack(ARMOR_LEGS_SLOT, stack);
-            case CHEST -> setStack(ARMOR_CHEST_SLOT, stack);
-            case HEAD -> setStack(ARMOR_HEAD_SLOT, stack);
+            case FEET -> setItem(ARMOR_FEET_SLOT, stack);
+            case LEGS -> setItem(ARMOR_LEGS_SLOT, stack);
+            case CHEST -> setItem(ARMOR_CHEST_SLOT, stack);
+            case HEAD -> setItem(ARMOR_HEAD_SLOT, stack);
             default -> {}
         }
     }
 
 
-    // === Inventory defaults ===
+    // === Container defaults ===
 
     @Override
-    default int size() {
+    default int getContainerSize() {
         return getItems().size();
     }
 
@@ -80,34 +80,34 @@ public interface GirlInventory extends Inventory {
     }
 
     @Override
-    default ItemStack getStack(int slot) {
+    default ItemStack getItem(int slot) {
         return getItems().get(slot);
     }
 
     @Override
-    default ItemStack removeStack(int slot, int count) {
-        ItemStack result = Inventories.splitStack(getItems(), slot, count);
-        if (!result.isEmpty()) markDirty();
+    default ItemStack removeItem(int slot, int count) {
+        ItemStack result = ContainerHelper.removeItem(getItems(), slot, count);
+        if (!result.isEmpty()) setChanged();
         return result;
     }
 
     @Override
-    default ItemStack removeStack(int slot) {
-        return Inventories.removeStack(getItems(), slot);
+    default ItemStack removeItemNoUpdate(int slot) {
+        return ContainerHelper.takeItem(getItems(), slot);
     }
 
     @Override
-    default void setStack(int slot, ItemStack stack) {
+    default void setItem(int slot, ItemStack stack) {
         getItems().set(slot, stack);
-        if (stack.getCount() > stack.getMaxCount()) {
-            stack.setCount(stack.getMaxCount());
+        if (stack.getCount() > stack.getMaxStackSize()) {
+            stack.setCount(stack.getMaxStackSize());
         }
-        markDirty();
+        setChanged();
     }
 
     // New method: set the entire inventory at once
     default void setItems(List<ItemStack> items) {
-        DefaultedList<ItemStack> inventory = getItems();
+        NonNullList<ItemStack> inventory = getItems();
 
         // Copy provided items into inventory
         for (int i = 0; i < items.size() && i < inventory.size(); i++) {
@@ -117,17 +117,17 @@ public interface GirlInventory extends Inventory {
 
 
     @Override
-    default void markDirty() {
+    default void setChanged() {
         // Optional: could sync inventory here, if needed
     }
 
     @Override
-    default boolean canPlayerUse(PlayerEntity player) {
+    default boolean stillValid(Player player) {
         return true;
     }
 
     @Override
-    default void clear() {
+    default void clearContent() {
         getItems().clear();
     }
 }

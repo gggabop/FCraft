@@ -1,25 +1,25 @@
 package com.sandymandy.pleasurecraft.networking.C2S;
 
 import com.sandymandy.pleasurecraft.PleasureCraft;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public record NextSceneAnimationC2SPacket(int entityId, String finishedAnimation) implements CustomPayload {
-    public static final Id<NextSceneAnimationC2SPacket> ID =
-            new Id<>(Identifier.of(PleasureCraft.MOD_ID, "sync_scene_progress"));
+public record NextSceneAnimationC2SPacket(int entityId, String finishedAnimation) implements CustomPacketPayload {
+    public static final Type<NextSceneAnimationC2SPacket> ID =
+            new Type<>(Identifier.fromNamespaceAndPath(PleasureCraft.MOD_ID, "sync_scene_progress"));
 
-    public static final PacketCodec<RegistryByteBuf, NextSceneAnimationC2SPacket> CODEC =
-            PacketCodec.tuple(
-                    PacketCodecs.VAR_INT, NextSceneAnimationC2SPacket::entityId,
-                    PacketCodecs.STRING, NextSceneAnimationC2SPacket::finishedAnimation,
+    public static final StreamCodec<RegistryFriendlyByteBuf, NextSceneAnimationC2SPacket> CODEC =
+            StreamCodec.composite(
+                    ByteBufCodecs.VAR_INT, NextSceneAnimationC2SPacket::entityId,
+                    ByteBufCodecs.STRING_UTF8, NextSceneAnimationC2SPacket::finishedAnimation,
                     NextSceneAnimationC2SPacket::new
             );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

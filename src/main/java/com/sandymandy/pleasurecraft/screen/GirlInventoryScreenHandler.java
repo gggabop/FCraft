@@ -4,29 +4,29 @@ import com.sandymandy.pleasurecraft.PleasureCraft;
 import com.sandymandy.pleasurecraft.entity.girls.AbstractGirlEntity;
 import com.sandymandy.pleasurecraft.util.inventory.slot.PublicArmorSlot;
 import com.sandymandy.pleasurecraft.util.inventory.GirlInventory;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.SwordItem;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.Level;
 
 import java.util.Map;
 
-public class GirlInventoryScreenHandler extends ScreenHandler {
-    private final Inventory inventory;
+public class GirlInventoryScreenHandler extends AbstractContainerMenu {
+    private final Container inventory;
     private final AbstractGirlEntity girl;
-    public static final Identifier EMPTY_HELMET_SLOT_TEXTURE = Identifier.ofVanilla( "container/slot/helmet");
-    public static final Identifier EMPTY_CHESTPLATE_SLOT_TEXTURE = Identifier.ofVanilla( "container/slot/chestplate");
-    public static final Identifier EMPTY_LEGGINGS_SLOT_TEXTURE = Identifier.ofVanilla( "container/slot/leggings");
-    public static final Identifier EMPTY_BOOTS_SLOT_TEXTURE = Identifier.ofVanilla( "container/slot/boots");
+    public static final Identifier EMPTY_HELMET_SLOT_TEXTURE = Identifier.withDefaultNamespace("container/slot/helmet");
+    public static final Identifier EMPTY_CHESTPLATE_SLOT_TEXTURE = Identifier.withDefaultNamespace("container/slot/chestplate");
+    public static final Identifier EMPTY_LEGGINGS_SLOT_TEXTURE = Identifier.withDefaultNamespace("container/slot/leggings");
+    public static final Identifier EMPTY_BOOTS_SLOT_TEXTURE = Identifier.withDefaultNamespace("container/slot/boots");
     public static final Map<EquipmentSlot, Identifier> EMPTY_ARMOR_SLOT_TEXTURES = Map.of(
             EquipmentSlot.FEET,
             EMPTY_BOOTS_SLOT_TEXTURE,
@@ -42,32 +42,32 @@ public class GirlInventoryScreenHandler extends ScreenHandler {
     };
 
     // The codec-compatible constructor
-    public GirlInventoryScreenHandler(int syncId, PlayerInventory playerInventory, PleasureCraft.GirlScreenData data) {
+    public GirlInventoryScreenHandler(int syncId, Inventory playerInventory, PleasureCraft.GirlScreenData data) {
         this(syncId, playerInventory, data.entityId());
     }
 
     // This constructor gets called from the BlockEntity on the server without calling the other constructor first, the server knows the inventory of the container
     // and can therefore directly provide it as an argument. This inventory will then be synced to the client.
-    public GirlInventoryScreenHandler(int syncId, PlayerInventory playerInventory, int girlId) {
+    public GirlInventoryScreenHandler(int syncId, Inventory playerInventory, int girlId) {
         super(PleasureCraft.GIRL_INVENTORY_SCREEN_HANDLER, syncId);
-        PlayerEntity player = playerInventory.player;
-        World world = player.getWorld();
+        Player player = playerInventory.player;
+        Level world = player.level();
 
-        Entity entity = world.getEntityById(girlId);
+        Entity entity = world.getEntity(girlId);
         if (!(entity instanceof AbstractGirlEntity girlEntity)) {
             throw new IllegalStateException("LucyEntity not found or mismatched entity ID");
         }
         this.girl = girlEntity;
 
-        Inventory inventory;
+        Container inventory;
         if (girl != null) {
             inventory = girl.getInventory(); // ← Use your custom implementation, not a copy
         } else {
-            inventory = new SimpleInventory(GirlInventory.TOTAL_SLOTS);
+            inventory = new SimpleContainer(GirlInventory.TOTAL_SLOTS);
         }
         this.inventory = inventory;
 
-        checkSize(inventory, GirlInventory.TOTAL_SLOTS);
+        checkContainerSize(inventory, GirlInventory.TOTAL_SLOTS);
 
 
         // ───── Backpack slots (4x3) = indices 5..16 ─────Add commentMore actions
@@ -81,8 +81,8 @@ public class GirlInventoryScreenHandler extends ScreenHandler {
         // ───── Main Hand Slot = index 0 ─────
         this.addSlot(new Slot(inventory, GirlInventory.MAIN_HAND_SLOT, 125, 63) {
             @Override
-            public boolean canInsert(ItemStack stack) {
-                return stack.getItem() instanceof SwordItem;
+            public boolean mayPlace(ItemStack stack) {
+                return stack.is(ItemTags.SWORDS);
             }
         });
 
@@ -119,12 +119,12 @@ public class GirlInventoryScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public boolean canUse(PlayerEntity player) {
-        return inventory.canPlayerUse(player);
+    public boolean stillValid(Player player) {
+        return inventory.stillValid(player);
     }
 
     @Override
-    public ItemStack quickMove(PlayerEntity player, int index) {
+    public ItemStack quickMoveStack(Player player, int index) {
         return ItemStack.EMPTY;
     }
 
